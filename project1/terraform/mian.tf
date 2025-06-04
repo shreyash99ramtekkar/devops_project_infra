@@ -38,9 +38,9 @@ resource "aws_internet_gateway" "ig-gw-web-app" {
   )
 }
 
-resource "aws_subnet" "web-app-subnet" {
+resource "aws_subnet" "web-app-subnet-1" {
   vpc_id     = aws_vpc.web-app-vpc.id
-  cidr_block = "10.0.0.0/24"
+  cidr_block = "10.0.0.0/25"
   tags = merge(
     var.tags,
     {
@@ -48,6 +48,17 @@ resource "aws_subnet" "web-app-subnet" {
     }
   )
 }
+resource "aws_subnet" "web-app-subnet-2" {
+  vpc_id     = aws_vpc.web-app-vpc.id
+  cidr_block = "10.0.0.128/25"
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.app_name}-subnet"
+    }
+  )
+}
+
 
 
 resource "aws_route_table" "web-app-public-rt" {
@@ -66,8 +77,12 @@ resource "aws_route" "web-app-public-internet-access" {
   gateway_id             = aws_internet_gateway.ig-gw-web-app.id
 }
 
-resource "aws_route_table_association" "web-app-public-subnet-assoc" {
-  subnet_id      = aws_subnet.web-app-subnet.id
+resource "aws_route_table_association" "web-app-public-subnet-1" {
+  subnet_id      = aws_subnet.web-app-subnet-1.id
+  route_table_id = aws_route_table.web-app-public-rt.id
+}
+resource "aws_route_table_association" "web-app-public-subnet-2" {
+  subnet_id      = aws_subnet.web-app-subnet-2.id
   route_table_id = aws_route_table.web-app-public-rt.id
 }
 
@@ -226,7 +241,7 @@ resource "aws_vpc_security_group_egress_rule" "allow_svc_sg_outbound_ipv6" {
 resource "aws_instance" "tomcat" {
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
-  subnet_id     = aws_subnet.web-app-subnet.id
+  subnet_id     = aws_subnet.web-app-subnet-1.id
   security_groups = [
     aws_security_group.web-app-tomcat-sg.id,
   ]
@@ -283,7 +298,7 @@ resource "aws_instance" "tomcat" {
 resource "aws_instance" "mysql" {
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
-  subnet_id     = aws_subnet.web-app-subnet.id
+  subnet_id     = aws_subnet.web-app-subnet-1.id
   security_groups = [
     aws_security_group.web-app-service-sg.id,
   ]
@@ -324,7 +339,7 @@ resource "aws_instance" "mysql" {
 resource "aws_instance" "memcached" {
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
-  subnet_id     = aws_subnet.web-app-subnet.id
+  subnet_id     = aws_subnet.web-app-subnet-1.id
   security_groups = [
     aws_security_group.web-app-service-sg.id,
   ]
@@ -350,7 +365,7 @@ resource "aws_instance" "memcached" {
 resource "aws_instance" "rabbitmq" {
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
-  subnet_id     = aws_subnet.web-app-subnet.id
+  subnet_id     = aws_subnet.web-app-subnet-1.id
   security_groups = [
     aws_security_group.web-app-service-sg.id,
   ]
@@ -435,15 +450,50 @@ resource "aws_lb_target_group" "web-app-tg" {
   name     = "web-app-tg"
   port     = 8080
   protocol = "HTTP"
-  vpc_id   = "${aws_vpc.web-app-vpc.id}"
+  vpc_id   = aws_vpc.web-app-vpc.id
   health_check {
     port = 8080
 
   }
+  tags = merge(
+    var.tags, {
+      Name = "Target Group - ${var.app_name}"
+  })
 }
 resource "aws_lb_target_group_attachment" "web-app-tg-attachment" {
-  target_group_arn = "${aws_lb_target_group.web-app-tg.arn}"
-  target_id        = "${aws_instance.tomcat.id}"
+  target_group_arn = aws_lb_target_group.web-app-tg.arn
+  target_id        = aws_instance.tomcat.id
   port             = 8080
 }
 
+resource "aws_lb" "web-app-lb" {
+  name               = "${var.app_name}-lb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.web-app-elb-sg.id]
+  subnets = [
+    aws_subnet.web-app-subnet-1.id,
+    aws_subnet.web-app-subnet-2.id
+  ]
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "Load Balancer ${var.app_name}"
+    }
+  )
+}
+
+resource "aws_lb_listener" "web-app-lb-listener" {
+  load_balancer_arn = aws_lb.web-app-lb.arn
+  port              = "80"
+  protocol          = "HTTP"
+  # ssl_policy        = "ELBSecurityPolicy-2016-08"
+  # certificate_arn   = "arn:aws:iam::187416307283:server-certificate/test_cert_rab3wuqwgja25ct3n4jdj2tzu4"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.web-app-tg.arn
+  }
+}
+# public certificate
