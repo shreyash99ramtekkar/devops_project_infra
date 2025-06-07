@@ -7,7 +7,7 @@ variable "app_name" {
 variable "my_ip" {
   description = "My IP address"
   type        = string
-  default     = "51.37.219.23/32"
+  default     = "109.76.173.169/32"
 
 }
 

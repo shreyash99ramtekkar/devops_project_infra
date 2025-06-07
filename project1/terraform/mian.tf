@@ -39,22 +39,24 @@ resource "aws_internet_gateway" "ig-gw-web-app" {
 }
 
 resource "aws_subnet" "web-app-subnet-1" {
-  vpc_id     = aws_vpc.web-app-vpc.id
-  cidr_block = "10.0.0.0/25"
+  vpc_id            = aws_vpc.web-app-vpc.id
+  cidr_block        = "10.0.0.0/25"
+  availability_zone = "${var.region}b"
   tags = merge(
     var.tags,
     {
-      Name = "${var.app_name}-subnet"
+      Name = "${var.app_name}-subnet-1"
     }
   )
 }
 resource "aws_subnet" "web-app-subnet-2" {
-  vpc_id     = aws_vpc.web-app-vpc.id
-  cidr_block = "10.0.0.128/25"
+  vpc_id            = aws_vpc.web-app-vpc.id
+  cidr_block        = "10.0.0.128/25"
+  availability_zone = "${var.region}c"
   tags = merge(
     var.tags,
     {
-      Name = "${var.app_name}-subnet"
+      Name = "${var.app_name}-subnet-2"
     }
   )
 }
@@ -251,9 +253,9 @@ resource "aws_instance" "tomcat" {
     #!/bin/bash
     sudo dnf install java-17-amazon-corretto-devel.x86_64 -y 
     sudo useradd -r -m -U -d /opt/tomcat -s /bin/false tomcat
-    wget -c https://downloads.apache.org/tomcat/tomcat-9/v9.0.105/bin/apache-tomcat-9.0.105.tar.gz
-    sudo tar xf apache-tomcat-9.0.105.tar.gz -C /opt/tomcat
-    sudo ln -s /opt/tomcat/apache-tomcat-9.0.105 /opt/tomcat/updated
+    wget -c https://downloads.apache.org/tomcat/tomcat-10/v10.1.41/bin/apache-tomcat-10.1.41.tar.gz
+    sudo tar xf apache-tomcat-10.1.41.tar.gz -C /opt/tomcat
+    sudo ln -s /opt/tomcat/apache-tomcat-10.1.41 /opt/tomcat/updated
     sudo chown -R tomcat:tomcat /opt/tomcat/*
     sh -c 'chmod +x /opt/tomcat/updated/bin/*.sh'
     sudo tee /etc/systemd/system/tomcat.service > /dev/null <<EOT
