@@ -40,7 +40,7 @@ resource "aws_internet_gateway" "ig-gw-web-app" {
 
 resource "aws_subnet" "web-app-subnet-1" {
   vpc_id            = aws_vpc.web-app-vpc.id
-  cidr_block        = "10.0.0.0/25"
+  cidr_block        = "10.0.0.0/26"
   availability_zone = "${var.region}b"
   tags = merge(
     var.tags,
@@ -51,12 +51,34 @@ resource "aws_subnet" "web-app-subnet-1" {
 }
 resource "aws_subnet" "web-app-subnet-2" {
   vpc_id            = aws_vpc.web-app-vpc.id
-  cidr_block        = "10.0.0.128/25"
+  cidr_block        = "10.0.0.64/26"
   availability_zone = "${var.region}c"
   tags = merge(
     var.tags,
     {
       Name = "${var.app_name}-subnet-2"
+    }
+  )
+}
+resource "aws_subnet" "web-app-subnet-3" {
+  vpc_id            = aws_vpc.web-app-vpc.id
+  cidr_block        = "10.0.0.128/26"
+  availability_zone = "${var.region}a"
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.app_name}-subnet-3"
+    }
+  )
+}
+resource "aws_subnet" "web-app-subnet-4" {
+  vpc_id            = aws_vpc.web-app-vpc.id
+  cidr_block        = "10.0.0.192/26"
+  availability_zone = "${var.region}c"
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.app_name}-subnet-4"
     }
   )
 }
@@ -85,6 +107,14 @@ resource "aws_route_table_association" "web-app-public-subnet-1" {
 }
 resource "aws_route_table_association" "web-app-public-subnet-2" {
   subnet_id      = aws_subnet.web-app-subnet-2.id
+  route_table_id = aws_route_table.web-app-public-rt.id
+}
+resource "aws_route_table_association" "web-app-public-subnet-3" {
+  subnet_id      = aws_subnet.web-app-subnet-3.id
+  route_table_id = aws_route_table.web-app-public-rt.id
+}
+resource "aws_route_table_association" "web-app-public-subnet-4" {
+  subnet_id      = aws_subnet.web-app-subnet-4.id
   route_table_id = aws_route_table.web-app-public-rt.id
 }
 
@@ -161,7 +191,7 @@ resource "aws_vpc_security_group_ingress_rule" "allow_tcp_tomcat" {
 }
 resource "aws_vpc_security_group_ingress_rule" "allow_ssh_tomcat" {
   security_group_id = aws_security_group.web-app-tomcat-sg.id
-  cidr_ipv4         = var.my_ip
+  cidr_ipv4         = "${var.my_ip}/32"
   from_port         = 22
   ip_protocol       = "tcp"
   to_port           = 22
@@ -223,7 +253,7 @@ resource "aws_vpc_security_group_ingress_rule" "allow_tcp_services" {
 
 resource "aws_vpc_security_group_ingress_rule" "allow_service_ssh_tcp_ip" {
   security_group_id = aws_security_group.web-app-service-sg.id
-  cidr_ipv4         = var.my_ip
+  cidr_ipv4         = "${var.my_ip}/32"
   from_port         = 22
   ip_protocol       = "tcp"
   to_port           = 22
@@ -244,6 +274,7 @@ resource "aws_instance" "tomcat" {
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.web-app-subnet-1.id
+  count         = 2
   security_groups = [
     aws_security_group.web-app-tomcat-sg.id,
   ]
@@ -406,7 +437,8 @@ resource "aws_instance" "rabbitmq" {
 # Route53 Private Hosted Zone and DNS Records
 
 resource "aws_route53_zone" "private-hz" {
-  name = "developer-internal.ie"
+  name = "${var.internal_hostname}"
+  comment = "Private hosted zone for ${var.app_name}"
   vpc {
     vpc_id = aws_vpc.web-app-vpc.id
   }
@@ -444,8 +476,9 @@ resource "aws_route53_record" "app_dns_mapping" {
   name    = "application.${aws_route53_zone.private-hz.name}"
   type    = "A"
   ttl     = 300
-  records = [aws_instance.tomcat.private_ip]
+  records = [aws_instance.tomcat[1].private_ip, aws_instance.tomcat[0].private_ip]
 }
+
 
 # Target Group and Load Balancer
 resource "aws_lb_target_group" "web-app-tg" {
@@ -457,14 +490,26 @@ resource "aws_lb_target_group" "web-app-tg" {
     port = 8080
 
   }
+  stickiness {
+    type            = "lb_cookie"
+    enabled         = true
+    cookie_duration = 86400 # 1 day
+  }
   tags = merge(
     var.tags, {
       Name = "Target Group - ${var.app_name}"
   })
 }
-resource "aws_lb_target_group_attachment" "web-app-tg-attachment" {
+
+
+resource "aws_lb_target_group_attachment" "web-app-1-tg-attachment" {
   target_group_arn = aws_lb_target_group.web-app-tg.arn
-  target_id        = aws_instance.tomcat.id
+  target_id        = aws_instance.tomcat[0].id
+  port             = 8080
+}
+resource "aws_lb_target_group_attachment" "web-app-2-tg-attachment" {
+  target_group_arn = aws_lb_target_group.web-app-tg.arn
+  target_id        = aws_instance.tomcat[1].id
   port             = 8080
 }
 
@@ -475,7 +520,8 @@ resource "aws_lb" "web-app-lb" {
   security_groups    = [aws_security_group.web-app-elb-sg.id]
   subnets = [
     aws_subnet.web-app-subnet-1.id,
-    aws_subnet.web-app-subnet-2.id
+    aws_subnet.web-app-subnet-2.id,
+    aws_subnet.web-app-subnet-3.id
   ]
 
   tags = merge(
@@ -486,16 +532,83 @@ resource "aws_lb" "web-app-lb" {
   )
 }
 
-resource "aws_lb_listener" "web-app-lb-listener" {
+resource "aws_lb_listener" "web-app-lb-https-listener" {
   load_balancer_arn = aws_lb.web-app-lb.arn
-  port              = "80"
-  protocol          = "HTTP"
+  port              = "443"
+  protocol          = "HTTPS"
   # ssl_policy        = "ELBSecurityPolicy-2016-08"
-  # certificate_arn   = "arn:aws:iam::187416307283:server-certificate/test_cert_rab3wuqwgja25ct3n4jdj2tzu4"
+  certificate_arn = var.cert_arn
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.web-app-tg.arn
   }
 }
-# public certificate
+
+resource "aws_lb_listener" "web-app-lb-http-listener" {
+  load_balancer_arn = aws_lb.web-app-lb.arn
+  port              = "80"
+  protocol          = "HTTP"
+  # ssl_policy        = "ELBSecurityPolicy-2016-08"
+  # certificate_arn = var.cert_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.web-app-tg.arn
+  }
+}
+
+# #AutoScaling Group 
+# resource "aws_ami_from_instance" "web-app-ami" {
+#   name               = "${var.app_name}-ami"
+#   source_instance_id = aws_instance.tomcat.id
+#   tags = merge(
+#     var.tags, {
+#       Name = "AMI for ${var.app_name}"
+#   })
+# }
+
+# resource "aws_launch_template" "web-app-launch-template" {
+#   name          = "${var.app_name}-launch-template"
+#   description   = "Launch template for ${var.app_name} Tomcat application"
+#   image_id      = aws_ami_from_instance.web-app-ami.id
+#   instance_type = "t2.micro"
+#   key_name      = var.key_pair
+#   security_group_names = [
+#     aws_security_group.web-app-tomcat-sg.name
+#   ]
+#   tags = merge(
+#     var.tags, {
+#       Name = "Launch Template for ${var.app_name}"
+#   })
+# }
+
+# resource "aws_autoscaling_group" "aws-web-app-asg" {
+#   name               = "${var.app_name}-asg"
+#   availability_zones = [aws_subnet.web-app-subnet-1.availability_zone, aws_subnet.web-app-subnet-2.availability_zone, aws_subnet.web-app-subnet-3.availability_zone, aws_subnet.web-app-subnet-4.availability_zone]
+#   desired_capacity   = 1
+#   max_size           = 3
+#   min_size           = 1
+
+#   launch_template {
+#     id      = aws_launch_template.web-app-launch-template.id
+#     version = "$Latest"
+#   }
+#   load_balancers    = [aws_lb.web-app-lb.arn]
+#   target_group_arns = [aws_lb_target_group.web-app-tg.arn]
+#   health_check_type = "ELB"
+
+# }
+
+# resource "aws_autoscaling_policy" "example" {
+#   autoscaling_group_name = aws_autoscaling_group.aws-web-app-asg.name
+#   name                   = "${var.app_name}-scale-out-policy"
+#   target_tracking_configuration {
+#     predefined_metric_specification {
+#       predefined_metric_type = "ASGAverageCPUUtilization"
+#     }
+#     target_value     = 50.0
+#     disable_scale_in = false
+#   }
+
+# }

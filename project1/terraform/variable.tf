@@ -7,7 +7,6 @@ variable "app_name" {
 variable "my_ip" {
   description = "My IP address"
   type        = string
-  default     = "109.76.173.169/32"
 
 }
 
@@ -24,6 +23,7 @@ variable "key_pair" {
   default     = "new-key-pair"
 }
 
+
 variable "tags" {
   description = "Common tags for all resources"
   type        = map(string)
@@ -35,3 +35,16 @@ variable "tags" {
     CostCenter  = "Ops"
   }
 }
+
+variable "internal_hostname" {
+  description = "Internal hostname for the load balancer"
+  type        = string
+  default     = "devops-projects-internal.tech"
+  
+}
+
+variable "cert_arn" {
+  description = "Certificate ARN for the load balancer"
+  type        = string
+}
+
