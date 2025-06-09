@@ -22,7 +22,7 @@ In this setup project we will setup few things that we will need for the future 
 
 # Step 1: Setup HTTPS Traffic Encryption with ACM and GoDaddy
 
-## SSL Certificate with ACM
+- ## SSL Certificate with ACM
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/shreyash99ramtekkar/devops_project_infra.git
@@ -47,14 +47,14 @@ In this setup project we will setup few things that we will need for the future 
     terraform apply
     ```
 
-## Ensure the Domain is Registered and Matches ACM Configuration
-Verify that the domain you used in the ACM request is correctly [registered in GoDaddy]((https://www.godaddy.com/en/domains)), and you have access to manage its DNS records. 
+- ## Ensure the Domain is Registered and Matches ACM Configuration
+    Verify that the domain you used in the ACM request is correctly [registered in GoDaddy]((https://www.godaddy.com/en/domains)), and you have access to manage its DNS records. 
 
-## Add Validation Records in GoDaddy DNS 
-Add the CNAME records provided by ACM into your [GoDaddy DNS records](https://docs.aws.amazon.com/amplify/latest/userguide/to-add-a-custom-domain-managed-by-godaddy.html) to validate domain ownership.
+- ## Add Validation Records in GoDaddy DNS 
+    Add the CNAME records provided by ACM into your [GoDaddy DNS records](https://docs.aws.amazon.com/amplify/latest/userguide/to-add-a-custom-domain-managed-by-godaddy.html) to validate domain ownership.
 
 
-##  Verify Certificate Status in ACM
-After the DNS records propagate (can take a few minutes), check in ACM. The certificate status should change from Pending validation to Issued.
+- ##  Verify Certificate Status in ACM
+    After the DNS records propagate (can take a few minutes), check in ACM. The certificate status should change from Pending validation to Issued.
 
-AWS Console ---> Certificate Manager ---> Certificate ---> Domains ---> Status 
+    AWS Console ---> Certificate Manager ---> Certificate ---> Domains ---> Status 
