@@ -36,11 +36,12 @@ variable "tags" {
   }
 }
 
+# Make sure you change the value in the application.properties in ansible directory accordingly
 variable "internal_hostname" {
   description = "Internal hostname for the load balancer"
   type        = string
   default     = "devops-projects-internal.tech"
-  
+
 }
 
 variable "cert_arn" {

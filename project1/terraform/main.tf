@@ -128,20 +128,20 @@ resource "aws_security_group" "web-app-elb-sg" {
   })
 }
 
-resource "aws_vpc_security_group_ingress_rule" "allow_http_ipv4" {
-  security_group_id = aws_security_group.web-app-elb-sg.id
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 80
-  ip_protocol       = "tcp"
-  to_port           = 80
-}
-resource "aws_vpc_security_group_ingress_rule" "allow_http_ipv6" {
-  security_group_id = aws_security_group.web-app-elb-sg.id
-  cidr_ipv6         = "::/0"
-  from_port         = 80
-  ip_protocol       = "tcp"
-  to_port           = 80
-}
+# resource "aws_vpc_security_group_ingress_rule" "allow_http_ipv4" {
+#   security_group_id = aws_security_group.web-app-elb-sg.id
+#   cidr_ipv4         = "0.0.0.0/0"
+#   from_port         = 80
+#   ip_protocol       = "tcp"
+#   to_port           = 80
+# }
+# resource "aws_vpc_security_group_ingress_rule" "allow_http_ipv6" {
+#   security_group_id = aws_security_group.web-app-elb-sg.id
+#   cidr_ipv6         = "::/0"
+#   from_port         = 80
+#   ip_protocol       = "tcp"
+#   to_port           = 80
+# }
 
 resource "aws_vpc_security_group_ingress_rule" "allow_https_ipv4" {
   security_group_id = aws_security_group.web-app-elb-sg.id
@@ -270,11 +270,10 @@ resource "aws_vpc_security_group_egress_rule" "allow_svc_sg_outbound_ipv6" {
   ip_protocol       = "-1"
 }
 
-resource "aws_instance" "tomcat" {
+resource "aws_instance" "tomcat-1" {
   ami           = data.aws_ami.amazon_linux.id
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.web-app-subnet-1.id
-  count         = 2
   security_groups = [
     aws_security_group.web-app-tomcat-sg.id,
   ]
@@ -327,6 +326,61 @@ resource "aws_instance" "tomcat" {
   })
 }
 
+resource "aws_instance" "tomcat-2" {
+  ami           = data.aws_ami.amazon_linux.id
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.web-app-subnet-2.id
+  security_groups = [
+    aws_security_group.web-app-tomcat-sg.id,
+  ]
+  associate_public_ip_address = true
+  key_name                    = var.key_pair
+  user_data                   = <<-EOF
+    #!/bin/bash
+    sudo dnf install java-17-amazon-corretto-devel.x86_64 -y 
+    sudo useradd -r -m -U -d /opt/tomcat -s /bin/false tomcat
+    wget -c https://downloads.apache.org/tomcat/tomcat-10/v10.1.41/bin/apache-tomcat-10.1.41.tar.gz
+    sudo tar xf apache-tomcat-10.1.41.tar.gz -C /opt/tomcat
+    sudo ln -s /opt/tomcat/apache-tomcat-10.1.41 /opt/tomcat/updated
+    sudo chown -R tomcat:tomcat /opt/tomcat/*
+    sh -c 'chmod +x /opt/tomcat/updated/bin/*.sh'
+    sudo tee /etc/systemd/system/tomcat.service > /dev/null <<EOT
+    [Unit]
+    Description=Apache Tomcat Web Application Container
+    After=network.target
+
+    [Service]
+    Type=forking
+
+    Environment="JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto.x86_64"
+    Environment="CATALINA_PID=/opt/tomcat/updated/temp/tomcat.pid"
+    Environment="CATALINA_HOME=/opt/tomcat/updated/"
+    Environment="CATALINA_BASE=/opt/tomcat/updated/"
+    Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED"
+    Environment="JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
+
+    ExecStart=/opt/tomcat/updated/bin/startup.sh
+    ExecStop=/opt/tomcat/updated/bin/shutdown.sh
+
+    User=tomcat
+    Group=tomcat
+    UMask=0007
+    RestartSec=10
+    Restart=always
+
+    [Install]
+    WantedBy=multi-user.target
+    EOT
+    sudo systemctl daemon-reload
+    sudo systemctl start tomcat
+    sudo systemctl enable tomcat
+
+  EOF
+  tags = merge(
+    var.tags, {
+      Name = "Tomcat ${var.app_name}"
+  })
+}
 
 resource "aws_instance" "mysql" {
   ami           = data.aws_ami.amazon_linux.id
@@ -437,7 +491,7 @@ resource "aws_instance" "rabbitmq" {
 # Route53 Private Hosted Zone and DNS Records
 
 resource "aws_route53_zone" "private-hz" {
-  name = "${var.internal_hostname}"
+  name    = var.internal_hostname
   comment = "Private hosted zone for ${var.app_name}"
   vpc {
     vpc_id = aws_vpc.web-app-vpc.id
@@ -476,7 +530,7 @@ resource "aws_route53_record" "app_dns_mapping" {
   name    = "application.${aws_route53_zone.private-hz.name}"
   type    = "A"
   ttl     = 300
-  records = [aws_instance.tomcat[1].private_ip, aws_instance.tomcat[0].private_ip]
+  records = [aws_instance.tomcat-1.private_ip, aws_instance.tomcat-2.private_ip]
 }
 
 
@@ -504,12 +558,12 @@ resource "aws_lb_target_group" "web-app-tg" {
 
 resource "aws_lb_target_group_attachment" "web-app-1-tg-attachment" {
   target_group_arn = aws_lb_target_group.web-app-tg.arn
-  target_id        = aws_instance.tomcat[0].id
+  target_id        = aws_instance.tomcat-1.id
   port             = 8080
 }
 resource "aws_lb_target_group_attachment" "web-app-2-tg-attachment" {
   target_group_arn = aws_lb_target_group.web-app-tg.arn
-  target_id        = aws_instance.tomcat[1].id
+  target_id        = aws_instance.tomcat-2.id
   port             = 8080
 }
 
@@ -545,18 +599,18 @@ resource "aws_lb_listener" "web-app-lb-https-listener" {
   }
 }
 
-resource "aws_lb_listener" "web-app-lb-http-listener" {
-  load_balancer_arn = aws_lb.web-app-lb.arn
-  port              = "80"
-  protocol          = "HTTP"
-  # ssl_policy        = "ELBSecurityPolicy-2016-08"
-  # certificate_arn = var.cert_arn
+# resource "aws_lb_listener" "web-app-lb-http-listener" {
+#   load_balancer_arn = aws_lb.web-app-lb.arn
+#   port              = "80"
+#   protocol          = "HTTP"
+#   # ssl_policy        = "ELBSecurityPolicy-2016-08"
+#   # certificate_arn = var.cert_arn
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.web-app-tg.arn
-  }
-}
+#   default_action {
+#     type             = "forward"
+#     target_group_arn = aws_lb_target_group.web-app-tg.arn
+#   }
+# }
 
 # #AutoScaling Group 
 # resource "aws_ami_from_instance" "web-app-ami" {

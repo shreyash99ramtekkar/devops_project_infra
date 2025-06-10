@@ -1,0 +1,8 @@
+[app-server]
+23.48.35.27
+5.252.129.224
+
+
+[app-server:vars]
+ansible_user=ec2-user
+ansible_ssh_private_key_file=~/.aws/new-key-pair.pem

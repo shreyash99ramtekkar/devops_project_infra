@@ -1,0 +1,38 @@
+---
+# Write your playbook below.
+# Replace these contents with the tasks you'd like to complete and the modules you need.
+# For help getting started, check out https://www.redhat.com/en/topics/automation/what-is-an-ansible-playbook
+- name: Deployment of Webapp
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+  - name: Copy War file to Tomcat webapps directory
+    ansible.builtin.copy:
+      src: ./files/vprofile-v2.war
+      dest: /opt/tomcat/updated/webapps/ROOT.war
+      owner: tomcat
+      group: tomcat
+      mode: '0644'
+
+  - name: Start Tomcat
+    ansible.builtin.systemd:
+      name: tomcat
+      state: started
+
+  - name: Pause for 20 second to unzip the war
+    ansible.builtin.pause:
+      seconds: 20
+
+  - name: Change the application.properties file
+    ansible.builtin.copy:
+      src: ./files/application.properties
+      dest: /opt/tomcat/updated/webapps/ROOT/WEB-INF/classes/application.properties
+      owner: tomcat
+      group: tomcat
+      mode: '0644'
+
+  - name: Restart Tomcat
+    ansible.builtin.systemd:
+      name: tomcat
+      state: restarted
