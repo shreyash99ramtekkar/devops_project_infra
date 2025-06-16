@@ -1,5 +1,5 @@
 variable "app_name" {
-  description = "Name of the VPC"
+  description = "Name of the Application"
   type        = string
   default     = "web-app"
 }

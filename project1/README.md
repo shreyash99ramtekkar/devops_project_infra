@@ -1,6 +1,9 @@
 # Lift and Shift Application to AWS
 
-In this project, we will demonstrate how to lift and shift an application to AWS using the Terraform, Ansible. The application is a simple web application that runs on a virtual machine on ec2 free tier.
+In this project, we will demonstrate how to lift and shift an application to AWS using the Terraform, Ansible. The application is a simple web application that runs on a virtual machine on ec2 free tier. 
+
+## Architecture
+![Architecture](./arch.png)
 
 ## Prerequisites
 - [Setup Project](../project0/README.md)
@@ -20,6 +23,7 @@ In this project, we will demonstrate how to lift and shift an application to AWS
 │   └── terraform.tf
 └── README.md
 ```
+
 ## Steps to Deploy
 1. **Clone the repository**:
    ```bash
@@ -63,3 +67,7 @@ In this project, we will demonstrate how to lift and shift an application to AWS
 8. **Verify the login**
     https://vprofile.devops-projects.tech
       
+
+
+## Credits
+Application Credit: [Vprofile](https://github.com/hkhcoder/vprofile-project.git)
