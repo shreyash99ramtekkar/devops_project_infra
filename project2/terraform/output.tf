@@ -20,3 +20,9 @@ output "lb_dns_name" {
   description = "lb-dns-name"
   value       = aws_elastic_beanstalk_environment.eb_env_tomcat-env.load_balancers
 }
+
+# output "distribution_domain_name" {
+#   description = "distribution-domain-name"
+#   value       = aws_cloudfront_distribution.web_app_distribution.domain_name
+
+# }

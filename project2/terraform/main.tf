@@ -155,6 +155,75 @@ resource "aws_vpc_security_group_egress_rule" "allow_outbound_ipv4" {
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1"
 }
+
+# Security group for Elastic Beanstalk Load Balancer 
+resource "aws_security_group" "sg-beanstalk-lb" {
+  name        = "sg.beanstalk.lb.${var.region}.${var.env}.${var.app_name}"
+  description = "Security group for Elastic Beanstalk Load Balancer"
+  vpc_id      = aws_vpc.main.id
+  tags = merge(
+    var.tags,
+    {
+      Name = "sg-beanstalk-lb-${var.region}-${var.env}-${var.app_name}"
+    }
+  )
+}
+
+
+resource "aws_vpc_security_group_ingress_rule" "ingress-beanstalk-lb-http" {
+  security_group_id = aws_security_group.sg-beanstalk-lb.id
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "TCP"
+  cidr_ipv4         = "0.0.0.0/0"
+  description       = "Allow HTTP traffic from anywhere"
+}
+resource "aws_vpc_security_group_egress_rule" "egress-beanstalk-lb-http" {
+  security_group_id = aws_security_group.sg-beanstalk-lb.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "TCP"
+  from_port         = 443
+  to_port           = 443
+  description       = "Allow HTTP traffic to anywhere"
+}
+
+# Security group for Elastic Beanstalk EC2 instances
+resource "aws_security_group" "sg-beanstalk-ec2" {
+  name        = "sg.beanstalk.ec2.${var.region}.${var.env}.${var.app_name}"
+  description = "Security group for Elastic Beanstalk EC2 instances"
+  vpc_id      = aws_vpc.main.id
+  tags = merge(
+    var.tags,
+    {
+      Name = "sg-beanstalk-ec2-${var.region}-${var.env}-${var.app_name}"
+    }
+  )
+}
+resource "aws_vpc_security_group_egress_rule" "egress-beanstalk-ec2-http" {
+  security_group_id = aws_security_group.sg-beanstalk-ec2.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+  description       = "Allow HTTP traffic to anywhere"
+
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ingress-beanstalk-ec2-http" {
+  security_group_id            = aws_security_group.sg-beanstalk-ec2.id
+  referenced_security_group_id = aws_security_group.sg-beanstalk-lb.id
+  from_port                    = 80
+  to_port                      = 80
+  ip_protocol                  = "TCP"
+  description                  = "Allow HTTP traffic from lb"
+}
+
+
+resource "aws_vpc_security_group_ingress_rule" "sgr-ec2-backend-db" {
+  security_group_id            = aws_security_group.sg-backend-db.id
+  referenced_security_group_id = aws_security_group.sg-beanstalk-ec2.id
+  ip_protocol                  = "-1"
+  description                  = "Allow all TCP services within the backend security group"
+}
+
 # Backend database security group allowing communication between each other 
 resource "aws_vpc_security_group_ingress_rule" "sgr-backend-db-mysql" {
   security_group_id            = aws_security_group.sg-backend-db.id
@@ -200,12 +269,12 @@ resource "aws_db_subnet_group" "rds-mysql-subnet-grp" {
 }
 
 resource "aws_db_instance" "mysql-db" {
-  identifier             = "rds-mysql-${var.region}-${var.env}-${var.app_name}"
-  engine                 = "mysql"
-  engine_version         = "8.0.42"
-  instance_class         = "db.t3.micro"
-  allocated_storage      = 20
-  storage_type           = "gp3"
+  identifier        = "rds-mysql-${var.region}-${var.env}-${var.app_name}"
+  engine            = "mysql"
+  engine_version    = "8.0.42"
+  instance_class    = "db.t3.micro"
+  allocated_storage = 20
+  # storage_type           = "gp3"
   username               = "admin"
   password               = var.db_password # Change this to a secure password
   vpc_security_group_ids = [aws_security_group.sg-backend-db.id]
@@ -410,7 +479,16 @@ resource "aws_elastic_beanstalk_environment" "eb_env_tomcat-env" {
     name      = "RootVolumeType"
     value     = "gp3"
   }
-
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name      = "SecurityGroups"
+    value     = aws_security_group.sg-beanstalk-ec2.id
+  }
+  setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name      = "LoadBalancerType"
+    value     = "application" # <- Make sure it's a valid number as a string
+  }
   setting {
     namespace = "aws:ec2:vpc"
     name      = "VPCId"
@@ -437,11 +515,8 @@ resource "aws_elastic_beanstalk_environment" "eb_env_tomcat-env" {
     name      = "ELBSubnets"
     value     = "${aws_subnet.public-app-subnet-1.id},${aws_subnet.public-app-subnet-2.id}"
   }
-  setting {
-    namespace = "aws:elb:loadbalancer"
-    name      = "CrossZone"
-    value     = "true"
-  }
+
+
   setting {
     namespace = "aws:autoscaling:asg"
     name      = "MinSize"
@@ -467,6 +542,43 @@ resource "aws_elastic_beanstalk_environment" "eb_env_tomcat-env" {
     name      = "UpperThreshold"
     value     = "70"
   }
+
+
+
+
+  # Disable HTTP
+  setting {
+    namespace = "aws:elbv2:listener:default"
+    name      = "ListenerEnabled"
+    value     = "false"
+  }
+
+  # Enable HTTPS listener on port 443
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "ListenerEnabled"
+    value     = "true"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "Protocol"
+    value     = "HTTPS"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "SSLCertificateArns"
+    value     = var.cert_arn
+  }
+  setting {
+    namespace = "aws:elbv2:loadbalancer"
+    name      = "SecurityGroups"
+    value     = aws_security_group.sg-beanstalk-lb.id
+  }
+
+
+
 
   setting {
     namespace = "aws:elasticbeanstalk:environment"
@@ -498,7 +610,11 @@ resource "aws_elastic_beanstalk_environment" "eb_env_tomcat-env" {
     name      = "BatchSizeType"
     value     = "Percentage"
   }
-
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name      = "DisableDefaultEC2SecurityGroup"
+    value     = "true"
+  }
   setting {
     namespace = "aws:elasticbeanstalk:command"
     name      = "BatchSize"
@@ -526,7 +642,7 @@ resource "aws_s3_bucket" "application_bucket" {
   }
 }
 
-resource "aws_s3_object" "default" {
+resource "aws_s3_object" "default_app" {
   bucket = aws_s3_bucket.application_bucket.id
   key    = "beanstalk/tomcat.zip"
   source = "tomcat.zip"
@@ -537,7 +653,7 @@ resource "aws_elastic_beanstalk_application_version" "application_version" {
   application = aws_elastic_beanstalk_application.eb_tomcat_app.name
   description = "Version 1 of the vProfile web application"
   bucket      = aws_s3_bucket.application_bucket.id
-  key         = aws_s3_object.default.key
+  key         = aws_s3_object.default_app.key
   lifecycle {
     create_before_destroy = true
   }
@@ -548,4 +664,66 @@ resource "aws_elastic_beanstalk_application_version" "application_version" {
     }
   )
 
+}
+
+
+resource "aws_cloudfront_distribution" "web_app_distribution" {
+  origin {
+    domain_name = aws_elastic_beanstalk_environment.eb_env_tomcat-env.endpoint_url
+    origin_id   = "ElasticBeanstalkOrigin"
+    custom_origin_config {
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+      https_port             = 443
+      http_port              = 80
+    }
+  }
+
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = ""
+
+
+  default_cache_behavior {
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "ElasticBeanstalkOrigin"
+
+    forwarded_values {
+      query_string = true
+      headers      = ["*"]
+
+      cookies {
+        forward = "all"
+      }
+    }
+
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
+  }
+
+  aliases = ["vprofile.devops-projects.tech"]
+
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "whitelist"
+      locations        = ["US", "CA", "IN", "DE", "IE"]
+    }
+  }
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "web-app-distribution-${var.region}-${var.env}-${var.app_name}"
+    }
+  )
+
+  viewer_certificate {
+    acm_certificate_arn      = var.cert_arn_cloudfront
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
 }

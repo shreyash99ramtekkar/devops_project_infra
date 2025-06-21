@@ -1,0 +1,103 @@
+---
+- name: Configure the MYSQL DATABASE
+  hosts: 52.214.250.126
+  become: yes
+  vars:
+      db_pass: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          65333932623366353635316532616434373662623764386536663362336232636166383433313934
+          3835373037633439326231343837343536646461313864380a633739626262653638313735343538
+          34653638653934613563343138303531396235353737373438666133643234623938346561353366
+          6264666563626339640a323730623333346461616562333839666435306365613032333263653835
+          33363834623765663433376336336262623130363136346235383832366266363063
+
+      mysql_rds_address: "rds-mysql-eu-west-1-prod-web-app.crsc4ggiyq5l.eu-west-1.rds.amazonaws.com"
+  tasks:
+      - name: Install mysql client and git
+        ansible.builtin.dnf:
+          name:
+            - mariadb105
+            - git
+            - python3-pip
+          state: latest
+
+      - name: python mysql
+        ansible.builtin.pip:
+          name: PyMySQL
+          state: latest
+
+      - name: Make sure there is neither a database with name 'foo', nor one with name 'bar'
+        community.mysql.mysql_db:
+          name: accounts
+          state: present
+          login_user: admin
+          login_host: "{{ mysql_rds_address }}"
+          login_password: "{{ db_pass }}"
+      - name: Git checkout
+        ansible.builtin.git:
+          repo: 'https://github.com/hkhcoder/vprofile-project.git'
+          dest: /tmp/vprofile-project
+      - name: Restore database
+        community.mysql.mysql_db:
+          name: accounts
+          state: import
+          target: /tmp/vprofile-project/src/main/resources/db_backup.sql
+          login_user: admin
+          login_host: "{{ mysql_rds_address }}"
+          login_password: "{{ db_pass }}"
+
+
+
+- name: Building the Application
+  hosts: localhost
+  vars:
+      project_path: /tmp/vprofile-project
+      db_pass: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          65333932623366353635316532616434373662623764386536663362336232636166383433313934
+          3835373037633439326231343837343536646461313864380a633739626262653638313735343538
+          34653638653934613563343138303531396235353737373438666133643234623938346561353366
+          6264666563626339640a323730623333346461616562333839666435306365613032333263653835
+          33363834623765663433376336336262623130363136346235383832366266363063
+      mysql_rds_address: "rds-mysql-eu-west-1-prod-web-app.crsc4ggiyq5l.eu-west-1.rds.amazonaws.com"
+      rabbitmq_address: "b-d7358a7c-17ae-4626-a013-5367100e52a3.mq.eu-west-1.on.aws"
+      memcached_address: "memcached-cluster-eu-west-1-prod-web-app.vx7tmz.0001.euw1.cache.amazonaws.com"
+      modification:
+        - { key: "mysql://db01:3306/", value: "mysql://{{ mysql_rds_address }}:3306/"}
+        - { key: "jdbc.password=admin123", value: "jdbc.password={{ db_pass }}"}
+        - { key: "rabbitmq.address=rmq01",value: "rabbitmq.address={{ rabbitmq_address }}"}
+        - { key: "rabbitmq.port=5672",value: "rabbitmq.port=5671"}
+        - { key: "rabbitmq.username=admin",value: "rabbitmq.port=admin"}
+        - { key: "rabbitmq.password=test",value: "rabbitmq.password={{ db_pass }}"}
+        - { key: "memcached.active.host=mc01",value: "memcached.active.host={{ memcached_address }}"}
+
+  tasks:
+  - name: Git checkout
+    ansible.builtin.git:
+      repo: 'https://github.com/hkhcoder/vprofile-project.git'
+      dest: "{{ project_path }}"
+      version: awsrefactor
+      force: yes
+
+  - name: Print values to replace
+    ansible.builtin.debug:
+      msg: "Replacing {{ item.key }} with {{ item.value }}"
+    loop: "{{ modification }}"
+    
+  - name: Replace old mysql hostname with new RDS hostname 
+    ansible.builtin.replace:
+      path: "{{project_path}}/src/main/resources/application.properties"
+      regexp: '{{ item.key }}'
+      replace: '{{ item.value }}'
+    loop: "{{ modification }}"
+
+  - name: Build the Application
+    ansible.builtin.command:
+      cmd: mvn clean package -DskipTests
+      chdir: "{{ project_path }}"
+    register: build_result
+
+  - name: Check build result
+    ansible.builtin.fail:
+      msg: "Build failed with error: {{ build_result.stderr }}"
+    when: build_result.rc != 0
