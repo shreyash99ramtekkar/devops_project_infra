@@ -6,13 +6,13 @@ output "mysql_address" {
   description = "mysql-public-ip"
   value       = aws_db_instance.mysql-db.address
 }
-output "memcached_arn" {
+output "memcached_address" {
   description = "memcached-address"
   value       = aws_elasticache_cluster.memcached-cluster.cluster_address
 
 }
-output "rabbitmq_arn" {
-  description = "rabbitmq-arn"
+output "rabbitmq_endpoint" {
+  description = "rabbitmq-endpoint"
   value       = aws_mq_broker.rabbitmq.instances
 }
 

@@ -30,7 +30,7 @@ variable "env" {
 
 }
 variable "db_password" {
-  description = "Environment name"
+  description = "DB Password"
   type        = string
 
 }
@@ -55,4 +55,9 @@ variable "tags" {
     Team        = "Devops"
     CostCenter  = "Ops"
   }
+}
+variable "website_domain" {
+  description = "Website domain name"
+  type        = string
+  default     = "vprofile.devops-projects.tech"
 }

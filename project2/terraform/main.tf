@@ -704,7 +704,7 @@ resource "aws_cloudfront_distribution" "web_app_distribution" {
     max_ttl                = 86400
   }
 
-  aliases = ["vprofile.devops-projects.tech"]
+  aliases = ["${var.website_domain}"]
 
 
   restrictions {

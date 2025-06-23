@@ -44,16 +44,23 @@ Please create the certificate in us-east-1 (For Cloudfront) as well as the desir
     ```bash
     terraform init
     ```
-4. **Plan the Terraform deployment**:
+4. **Format Terraform Files**:
+    ```bash
+    terraform fmt
+    ```
+5. **Validate Terraform Configuration**:
+    ```bash
+    terraform validate
+   ```
+6. **Plan the Terraform deployment**:
     ```bash
     terraform plan
     ```
-5. **Apply the Terraform configuration**:
+7. **Apply the Terraform configuration**:
     ```bash
     terraform apply
     ```
-
-6. **Run Ansible playbook**:
+8. **Run Ansible playbook**:
 
     -  Navigate to the Ansible directory and run the playbook:
     ```
@@ -70,6 +77,7 @@ Please create the certificate in us-east-1 (For Cloudfront) as well as the desir
     ansible-vault encrypt_string 'PassW0rd' --name 'db_pass'
     # copy the output in the vars section of the main.yaml or create a seperate vars file and import it in the main file
     # Change the variable values. Copy the variables output from terraform
+      host: "bastion_host_ip"
       mysql_rds_address: "rds-mysql-eu-west-1-prod-web-app.com"
       rabbitmq_address: "b-d7358a7c-17ae-4626-a013-5367100e52a3.mq.com"
       memcached_address: "memcached-cluster.com"
@@ -77,17 +85,17 @@ Please create the certificate in us-east-1 (For Cloudfront) as well as the desir
     
     - Run the playbbok
     ```bash
-    ansible-playbook -i inventory playbook.yml --ask-vault-pass
+    ansible-playbook -i inventory main.yaml --ask-vault-pass
     ```
 
-7. Deploy the Vprofile application war 
+9. Deploy the Vprofile application war 
    - Go to the Elastic Beanstalk on AWS
    - Go to the Environment
    - Click on Upload and Deploy
    - Select the war file created by Ansible in /tmp/vprofile-project
    - Deploy
     
-8. **Add the Cloudfront DNS Record in Domain DNS**:
+10. **Add the Cloudfront DNS Record in Domain DNS**:
     Please change the domain [configured](../project0/README.md)
 
     CName: vprofile.devops-projects.tech
@@ -95,7 +103,7 @@ Please create the certificate in us-east-1 (For Cloudfront) as well as the desir
     CValue: cloudfront dns
 
 
-9. **Verify the login**
+11. **Verify the login**
     https://vprofile.devops-projects.tech
       
 
