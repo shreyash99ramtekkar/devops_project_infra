@@ -79,8 +79,15 @@ Please create the certificate in us-east-1 (For Cloudfront) as well as the desir
     ```bash
     ansible-playbook -i inventory playbook.yml --ask-vault-pass
     ```
+
+7. Deploy the Vprofile application war 
+   - Go to the Elastic Beanstalk on AWS
+   - Go to the Environment
+   - Click on Upload and Deploy
+   - Select the war file created by Ansible in /tmp/vprofile-project
+   - Deploy
     
-7. **Add the Cloudfront DNS Record in Domain DNS**:
+8. **Add the Cloudfront DNS Record in Domain DNS**:
     Please change the domain [configured](../project0/README.md)
 
     CName: vprofile.devops-projects.tech
@@ -88,7 +95,7 @@ Please create the certificate in us-east-1 (For Cloudfront) as well as the desir
     CValue: cloudfront dns
 
 
-8. **Verify the login**
+9. **Verify the login**
     https://vprofile.devops-projects.tech
       
 
