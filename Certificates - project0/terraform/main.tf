@@ -1,3 +1,6 @@
+provider "aws" {
+  region = var.region
+}
 resource "aws_acm_certificate" "web-app-cert" {
   domain_name       = "*.${var.domain_name}"
   validation_method = "DNS"

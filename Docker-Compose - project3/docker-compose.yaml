@@ -1,0 +1,74 @@
+networks:
+    vprofile-networks:
+        driver: bridge
+volumes:
+    vprofile-app-data:
+        driver: local
+    vprofile-db-data:
+        driver: local
+
+services:
+    vprofile-db:
+        build:
+            context: ./mysql
+            dockerfile: Dockerfile
+        container_name: vprodb
+        ports:
+            - "3306:3306"
+        volumes:
+            - vprofile-db-data:/var/lib/mysql
+        environment:
+            - MYSQL_USER=root
+            - MYSQL_PASSWORD=vprodbpass
+        networks:
+            - vprofile-networks
+
+    vprofile-cache:
+        image: memcached
+        container_name: vprocache01
+        ports:
+          - "11211:11211"
+        networks:
+            - vprofile-networks
+    
+    vprofile-rabbitmq:
+        image: rabbitmq
+        container_name: vpromq01
+        ports:
+            - "5672:5672"
+        environment:
+            - "RABBITMQ_DEFAULT_USER=guest" 
+            - "RABBITMQ_DEFAULT_PASS=guest"
+        networks:
+            - vprofile-networks
+    vprofile-app:
+        build:
+            context: ./app
+            dockerfile: Dockerfile
+        container_name: vprofile
+        ports:
+            - "8000:8000"
+        volumes:
+          - vprofile-app-data:/usr/local/tomcat/webapps
+        networks:
+            - vprofile-networks
+    
+    vprofile-nginx:
+        build:
+            context: ./nginx
+            dockerfile: Dockerfile
+        image: nginx:latest
+        container_name: vprofile-nginx
+        ports:
+            - "80:80"
+        volumes:
+            - ./nginx.conf:/etc/nginx/nginx.conf
+        depends_on:
+            - vprofile-app
+        networks:
+            - vprofile-networks
+        restart: always
+    
+
+
+    
