@@ -10,7 +10,7 @@ Refactor EC2-based deployment to AWS Elastic Beanstalk and managed services usin
 
 ## Prerequisites
 Please create the certificate in us-east-1 (For Cloudfront) as well as the desired region you want to create infrastructure for your application
-- [Setup Project](../project0/README.md)
+- [Setup Project](../Certificates%20-%20project0/README.md)
 
 ## Project Structure
 ```
@@ -31,7 +31,7 @@ Please create the certificate in us-east-1 (For Cloudfront) as well as the desir
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/shreyash99ramtekkar/devops_project_infra.git
-   cd devops_project_infra/project2/terraform
+   cd devops_project_infra/ReFactor\ -\ project2/terraform
    #Change the required variable values
    vim variable.tf
     ```
@@ -96,7 +96,7 @@ Please create the certificate in us-east-1 (For Cloudfront) as well as the desir
    - Deploy
     
 10. **Add the Cloudfront DNS Record in Domain DNS**:
-    Please change the domain [configured](../project0/README.md)
+    Please change the domain [configured](../Certificates%20-%20project0/README.md)
 
     CName: vprofile.devops-projects.tech
 
@@ -106,6 +106,11 @@ Please create the certificate in us-east-1 (For Cloudfront) as well as the desir
 11. **Verify the login**
     https://vprofile.devops-projects.tech
       
+
+12. **Destroy the Infra** 
+    ```bash
+    terraform destroy
+    ```
 
 
 ## Credits

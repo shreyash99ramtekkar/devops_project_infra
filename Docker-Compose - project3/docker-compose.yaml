@@ -12,14 +12,15 @@ services:
         build:
             context: ./mysql
             dockerfile: Dockerfile
+        image: sramtekkar/vprofile-db
         container_name: vprodb
         ports:
-            - "3306:3306"
+            - "3309:3306"
         volumes:
             - vprofile-db-data:/var/lib/mysql
         environment:
-            - MYSQL_USER=root
-            - MYSQL_PASSWORD=vprodbpass
+            - "MYSQL_DATABASE=accounts"
+            - "MYSQL_ROOT_PASSWORD=vprodbpass"
         networks:
             - vprofile-networks
 
@@ -41,13 +42,15 @@ services:
             - "RABBITMQ_DEFAULT_PASS=guest"
         networks:
             - vprofile-networks
+
     vprofile-app:
         build:
-            context: ./app
-            dockerfile: Dockerfile
+            context: .
+            dockerfile: ./app/Dockerfile
         container_name: vprofile
+        image: sramtekkar/vprofile-app
         ports:
-            - "8000:8000"
+            - "8080:8080"
         volumes:
           - vprofile-app-data:/usr/local/tomcat/webapps
         networks:
@@ -57,12 +60,10 @@ services:
         build:
             context: ./nginx
             dockerfile: Dockerfile
-        image: nginx:latest
         container_name: vprofile-nginx
+        image: sramtekkar/vprofile-nginx
         ports:
             - "80:80"
-        volumes:
-            - ./nginx.conf:/etc/nginx/nginx.conf
         depends_on:
             - vprofile-app
         networks:

@@ -26,7 +26,7 @@ In this setup project we will setup few things that we will need for the future 
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/shreyash99ramtekkar/devops_project_infra.git
-   cd devops_project_infra/project0/terraform
+   cd devops_project_infra/Certificates\ -\ project0/terraform
     ```
 2. **Configure AWS credentials**:
     Ensure your AWS credentials are configured. You can set them up using the [AWS CLI](https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-files.html#cli-configure-files-methods)

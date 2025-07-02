@@ -6,7 +6,7 @@ In this project, we will demonstrate how to lift and shift an application to AWS
 ![Architecture](./arch.png)
 
 ## Prerequisites
-- [Setup Project](../project0/README.md)
+- [Setup Project](../Certificates%20-%20project0//README.md)
 
 ## Project Structure
 ```
@@ -28,7 +28,7 @@ In this project, we will demonstrate how to lift and shift an application to AWS
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/shreyash99ramtekkar/devops_project_infra.git
-   cd devops_project_infra/project1/terraform
+   cd devops_project_infra/Lift\ and\ Shift\ -\ project1/terraform
     ```
 2. **Configure AWS credentials**:
     Ensure your AWS credentials are configured. You can set them up using the [AWS CLI](https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-files.html#cli-configure-files-methods)
@@ -57,7 +57,7 @@ In this project, we will demonstrate how to lift and shift an application to AWS
     ```
     
 7. **Add the LB DNS Record in Domain DNS**:
-    Please change the domain [configured](../project0/README.md)
+    Please change the domain [configured](../Certificates%20-%20project0/README.md)
 
     CName: vprofile.devops-projects.tech
 
@@ -66,6 +66,12 @@ In this project, we will demonstrate how to lift and shift an application to AWS
 
 8. **Verify the login**
     https://vprofile.devops-projects.tech
+
+
+9. **Destroy the Infra** 
+    ```bash
+    terraform destroy
+    ```
       
 
 
