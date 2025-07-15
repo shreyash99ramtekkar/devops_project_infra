@@ -12,3 +12,6 @@ sudo apt-get install jenkins -y
 sudo systemctl start jenkins
 sudo systemctl enable jenkins
 sudo systemctl status jenkins
+
+
+
