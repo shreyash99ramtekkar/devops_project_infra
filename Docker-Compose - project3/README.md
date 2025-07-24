@@ -11,6 +11,7 @@ Deploy the application on the docker on a single host instance using docker comp
    git clone https://github.com/shreyash99ramtekkar/devops_project_infra.git
    cd devops_project_infra/Docker-Compose - project3
     ```
+
 2. **Build the images**:
     ```bash
     docker compose build
